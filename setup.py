@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from setuptools import find_packages
 from setuptools import setup
 
 from pytest_gitdiff import __version__
@@ -13,6 +14,7 @@ setup(
     name=PACKAGE_NAME,
     description="A tool for comparing pytest runs on different git revisions",
     install_requires=REQUIREMENTS,
+    packages=find_packages(exclude=["tests"]),
     version=__version__,
     license="MIT",
     license_file="LICENSE",
@@ -28,6 +30,6 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     entry_points={
-        "console_scripts": ["pytest-git-diff=pytest_gitdiff.cli.main"],
+        "console_scripts": ["pytest-git-diff=pytest_gitdiff.cli:main"],
     },
 )
