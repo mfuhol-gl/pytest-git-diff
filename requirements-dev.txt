@@ -1,0 +1,17 @@
+-r requirements.txt
+pre-commit~=2.17.0
+
+mypy~=0.931
+flakehell==0.7.0
+flake8==3.9.0
+flake8-black~=0.2.1
+flake8-isort~=4.0.0
+flake8-annotations-complexity~=0.0.6
+flake8-annotations-coverage~=0.0.5
+flake8-annotations~=2.6.2
+flake8-broken-line~=0.3.0
+flake8-comprehensions~=3.6.1
+mccabe~=0.6.1
+pep8-naming~= 0.11.1
+pycodestyle~=2.7.0
+pyflakes~=2.3.1

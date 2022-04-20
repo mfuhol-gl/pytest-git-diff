@@ -1,0 +1,81 @@
+[tool.flakehell]
+exclude = [".venv", "venv", ".tox", "dist", "build", "docs"]
+inline-quotes = "double"
+max_line_length = 88
+show_source = true
+
+[tool.flakehell.plugins]
+flake8-broken-line = ["+*"]
+flake8-bugbear = ["+*"]
+flake8-comprehensions = ["+*"]
+flake8-debugger = ["+*"]
+flake8-eradicate = ["+*"]
+flake8-annotations-complexity = ["+*"]
+flake8-annotations-coverage = ["+*"]
+flake8-annotations = [
+    "+*",
+    "-ANN101", # Allow no type-hinted self
+    "-ANN102" # Allow no type-hinted cls
+]
+flake8-black = ["+*"]
+flake8-isort = ["+*"]
+mccabe = ["+*"]
+pep8-naming = ["+*"]
+pycodestyle = [
+    "+*",
+    "-W503", # Allow for line breaks where Black decides are valid
+]
+pyflakes = [
+    "+*",
+    "-F405", # Allow using things from star imports if they are required
+]
+
+[tool.flakehell.exceptions."tests/"]
+flake8-annotations = ["-ANN*"] # Type annotations are optional for tests
+flake8-annotations-coverage = [
+    "-TAE001",
+] # Type annotations are optional for tests
+flake8-pytest = ["+*"]
+pycodestyle = [
+    "-E501" # Allow long lines inside tests
+]
+
+[tool.mypy]
+follow_imports = "silent"
+warn_return_any = false
+ignore_missing_imports = true
+exclude = 'venv|\.env|\.venv|\.tox|dist|build|docs'
+
+[tool.isort]
+profile = "black"
+default_section = "THIRDPARTY"
+sections = "FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
+known_first_party = "dccf"
+force_single_line = true
+atomic = true
+balanced_wrapping = true
+include_trailing_comma = true
+combine_as_imports = true
+use_parentheses = true
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
