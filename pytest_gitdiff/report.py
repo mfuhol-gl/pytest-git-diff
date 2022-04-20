@@ -6,20 +6,25 @@ from typing import Optional
 import pydantic
 
 
-class TestSummary(pydantic.BaseModel):
+class FrozenBaseModel(pydantic.BaseModel):
+    class Config(pydantic.BaseConfig):
+        frozen = True
+
+
+class TestSummary(FrozenBaseModel):
     passed: int
     failed: int
     total: int
     collected: int
 
 
-class CrashSummary(pydantic.BaseModel):
+class CrashSummary(FrozenBaseModel):
     path: str
     lineno: int
     message: str
 
 
-class TestPhaseOutcome(pydantic.BaseModel):
+class TestPhaseOutcome(FrozenBaseModel):
     duration: float
     outcome: str
     crash: Optional[CrashSummary] = None
@@ -31,20 +36,31 @@ class TestPhaseOutcome(pydantic.BaseModel):
         return self.outcome == "passed"
 
 
-class TestOutcome(pydantic.BaseModel):
+class TestOutcome(FrozenBaseModel):
     nodeid: str
     lineno: int
     outcome: str
     setup: TestPhaseOutcome
-    call: TestPhaseOutcome
-    teardown: TestPhaseOutcome
+    call: Optional[TestPhaseOutcome] = None
+    teardown: Optional[TestPhaseOutcome] = None
 
     @property
     def passed(self):
         return self.outcome == "passed"
 
+    @property
+    def error(self) -> Optional[str]:
+        if self.passed:
+            return None
 
-class TestReport(pydantic.BaseModel):
+        for phase in (self.setup, self.call, self.teardown):
+            if phase is not None and not phase.passed:
+                return phase.longrepr
+
+        raise RuntimeError(f"Unable to find failure reason for test {self.nodeid}")
+
+
+class TestReport(FrozenBaseModel):
     created: float
     duration: float
     exitcode: int
