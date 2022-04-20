@@ -1,7 +1,7 @@
 from typing import Any
-from typing import Dict
-from typing import List
+from typing import FrozenSet
 from typing import Optional
+from typing import Tuple
 
 import pydantic
 
@@ -12,10 +12,11 @@ class FrozenBaseModel(pydantic.BaseModel):
 
 
 class TestSummary(FrozenBaseModel):
-    passed: int
-    failed: int
-    total: int
-    collected: int
+    passed: int = 0
+    failed: int = 0
+    total: int = 0
+    collected: int = 0
+    deselected: int = 0
 
 
 class CrashSummary(FrozenBaseModel):
@@ -25,10 +26,9 @@ class CrashSummary(FrozenBaseModel):
 
 
 class TestPhaseOutcome(FrozenBaseModel):
-    duration: float
     outcome: str
     crash: Optional[CrashSummary] = None
-    traceback: Optional[List[CrashSummary]] = None
+    traceback: Optional[FrozenSet[CrashSummary]] = None
     longrepr: Optional[str] = None
 
     @property
@@ -65,6 +65,5 @@ class TestReport(FrozenBaseModel):
     duration: float
     exitcode: int
     root: str
-    environment: Dict[str, Any]
     summary: TestSummary
-    tests: List[TestOutcome]
+    tests: FrozenSet[TestOutcome]

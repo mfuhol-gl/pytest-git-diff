@@ -9,10 +9,9 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Sequence
-from typing import Set
-from typing import Tuple
 from typing import TypeVar
 
+from colorama import Fore
 from git import GitCommandError
 from git import Repo
 
@@ -37,19 +36,34 @@ class DiffSummary:
 
     @classmethod
     def from_reports(cls, init: TestReport, cmp: TestReport):
-        init_set = {test for test in init}
-        cmp_set = {test for test in cmp}
+        initial_success = {test for test in init.tests if test.passed}
+        initial_fail = {test for test in init.tests if not test.passed}
 
         return cls(
-            succeeded=[test for test in init.tests if test.passed],
-            failed=[test for test in init.tests if not test.passed],
-            new=list(cmp_set.difference(init_set)),
-            deleted=list(init_set.difference(cmp_set)),
+            succeeded=[
+                test for test in cmp.tests if test.passed and test in initial_fail
+            ],
+            failed=[
+                test
+                for test in cmp.tests
+                if not test.passed and test in initial_success
+            ],
+            new=list(set(cmp.tests).difference(init.tests)),
+            deleted=list(set(init.tests).difference(cmp.tests)),
         )
 
     @property
     def degradated(self) -> bool:
         return len(self.failed) > 0
+
+    @property
+    def empty(self) -> bool:
+        return (
+            len(self.succeeded) == 0
+            and len(self.failed) == 0
+            and len(self.new) == 0
+            and len(self.deleted) == 0
+        )
 
 
 def run_pytest(*args: str, **opts: Any) -> TestReport:
@@ -59,11 +73,20 @@ def run_pytest(*args: str, **opts: Any) -> TestReport:
             [
                 "pytest",
                 *args,
+                "--json-report",
                 "--json-report-file",
                 json_file,
             ],
             **opts,
         )
+
+        if not os.path.isfile(json_file):
+            raise RuntimeError("Pytest failed at collection phase")
+
+        with open(json_file) as f:
+            with open("log.log", "w") as fp:
+                fp.write(f.read())
+
         return TestReport.parse_file(json_file)
 
 
@@ -71,11 +94,16 @@ def checkout_rev(rev: str, force: bool = False) -> None:
     GIT.checkout(rev, force=force)
 
 
-def run_at_rev(rev: str, callback: Callable[[], T]) -> T:
+def run_pytest_at(rev: str, *args: str, **opts: Any) -> TestReport:
     old_rev = REPO.active_branch.name
-    checkout_rev(rev)
-    callback()
-    checkout_rev(old_rev)
+    try:
+        checkout_rev(rev)
+        print(f"Running pytest at {rev} revision")
+        return run_pytest(*args, **opts)
+    except Exception as err:
+        raise RuntimeError(f"Execution at {rev} revision failed") from err
+    finally:
+        checkout_rev(old_rev)
 
 
 def ensure_rev_exists(revision: str) -> None:
@@ -101,8 +129,8 @@ def diff_revisions(
     if cmp_rev != REPO.active_branch.name:
         ensure_rev_exists(cmp_rev)
 
-    init_report = run_at_rev(init_rev, lambda: run_pytest(*pytest_args, **options))
-    cmp_report = run_at_rev(cmp_rev, lambda: run_pytest(*pytest_args, **options))
+    cmp_report = run_pytest_at(cmp_rev, *pytest_args, **options)
+    init_report = run_pytest_at(init_rev, *pytest_args, **options)
     diff = DiffSummary.from_reports(init_report, cmp_report)
 
     return diff

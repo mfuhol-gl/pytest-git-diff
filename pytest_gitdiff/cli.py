@@ -1,7 +1,9 @@
 import argparse
+import math
 import os
 import subprocess
 import sys
+import traceback
 from typing import Any
 from typing import Dict
 from typing import NoReturn
@@ -33,11 +35,11 @@ def cmdline_arguments():
         description="A tool for comparing pytest runs on different git revisions",
     )
 
-    parser.add_argument("init-rev", type=git_revision)
-    parser.add_argument("--cmp-rev", dest="cmp_rev", type=git_revision, default=None)
+    parser.add_argument("init_rev", type=git_revision)
+    parser.add_argument("--cmp", "-c", dest="cmp_rev", type=git_revision, default=None)
     parser.add_argument("--no-summary", action="store_true")
     parser.add_argument("--silent", "-s", action="store_true")
-    parser.add_argument("--print-crashes", action="store_true")
+    parser.add_argument("--print-new-fails", "-p", action="store_true")
     parser.add_argument("-a", "--args", nargs=argparse.REMAINDER, default=())
 
     return parser.parse_args()
@@ -50,35 +52,40 @@ def configure_subprocess(silent: bool) -> Dict[str, Any]:
     return opts
 
 
-def print_delimiter(
-    fill_char: str, inner: str = "", color: Optional[Any] = None
-) -> None:
-    size = os.get_terminal_size().columns
-    size = size - len(inner)
-    half_fill = fill_char * (size // 2 - 1)
-    if color is not None:
-        half_fill = color + half_fill + Style.RESET_ALL
+def color(text: str, clr: Any):
+    return clr + text + Style.RESET_ALL
 
-    print(half_fill + f" {inner} " + half_fill)
+
+def print_delimiter(fill_char: str, inner: str = "", clr: Optional[Any] = None) -> None:
+    size = os.get_terminal_size().columns
+    size = size - len(inner) - 2
+    half_fill = fill_char * (math.ceil(size / 2))
+    line = half_fill + f"{inner}" + half_fill
+    if clr is not None:
+        line = color(line, clr)
+
+    print(line)
 
 
 def print_summary(diff: DiffSummary) -> None:
-    print_delimiter(inner="diff summary")
+    if diff.empty:
+        print(color("No changes so far.", Fore.YELLOW))
+        return
+
+    print_delimiter("=", inner="diff summary")
     if len(diff.new) > 0:
-        print(Fore.GREEN + f"++ {len(diff.new)} tests added" + Style.RESET_ALL)
+        print(color(f"++ {len(diff.new)} tests added", Fore.GREEN))
     if len(diff.succeeded) > 0:
-        print(Fore.GREEN + f"+  {len(diff.succeeded)} tests now pass" + Style.RESET_ALL)
+        print(color(f"+  {len(diff.succeeded)} tests now pass", Fore.GREEN))
     if len(diff.deleted) > 0:
-        print(
-            Fore.LIGHTRED_EX + f"*  {len(diff.deleted)} tests delete" + Style.RESET_ALL
-        )
+        print(color(f"*  {len(diff.deleted)} tests deleted", Fore.LIGHTRED_EX))
     if len(diff.failed) > 0:
-        print(Fore.RED + f"-- {len(diff.failed)} tests now fail" + Style.RESET_ALL)
+        print(color(f"-- {len(diff.failed)} tests now fail", Fore.RED))
 
     if diff.degradated:
-        print_delimiter("=", inner=f"{RAIN} degradated {RAIN}", color=Fore.RED)
+        print_delimiter("=", inner=f"{RAIN} degradated {RAIN}", clr=Fore.RED)
     else:
-        print_delimiter("=", inner=f"{STAR} succeeded {STAR}", color=Fore.GREEN)
+        print_delimiter("=", inner=f"{STAR} succeeded {STAR}", clr=Fore.GREEN)
 
 
 def print_crashes(diff: DiffSummary) -> None:
@@ -89,22 +96,29 @@ def print_crashes(diff: DiffSummary) -> None:
 
 def main() -> NoReturn:
     arguments = cmdline_arguments()
+    try:
+        opts = configure_subprocess(arguments.silent)
+        diff = diff_revisions(
+            pytest_args=arguments.args,
+            init_rev=arguments.init_rev,
+            cmp_rev=arguments.cmp_rev,
+            options=opts,
+        )
 
-    opts = configure_subprocess(arguments.silent)
-    diff = diff_revisions(
-        pytest_args=arguments.args,
-        init_rev=arguments.init_rev,
-        cmp_rev=arguments.cmp_rev,
-        options=opts,
-    )
+        if arguments.print_new_fails:
+            print_crashes(diff)
 
-    if arguments.print_crashes:
-        print_crashes(diff)
-
-    if not arguments.no_summary:
-        print_summary(diff)
-
-    sys.exit(1 if diff.degradated else 0)
+        if not arguments.no_summary:
+            print_summary(diff)
+    except Exception:
+        traceback.print_exc()
+        print(Fore.RED + "Irrecoverable error caught, terminating" + Style.RESET_ALL)
+        sys.exit(2)
+    except KeyboardInterrupt:
+        print("Interrupted.")
+        sys.exit(2)
+    else:
+        sys.exit(1 if diff.degradated else 0)
 
 
 if __name__ == "__main__":
