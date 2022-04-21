@@ -1,24 +1,19 @@
 import argparse
-import math
-import os
 import subprocess
 import sys
 import traceback
 from typing import Any
 from typing import Dict
 from typing import NoReturn
-from typing import Optional
 
 from colorama import Fore
-from colorama import Style
 
-from pytest_gitdiff.diff import DiffSummary
 from pytest_gitdiff.diff import diff_revisions
 from pytest_gitdiff.diff import ensure_rev_exists
 from pytest_gitdiff.errors import InvalidGitRevision
-
-STAR = "✨"
-RAIN = "🌧"
+from pytest_gitdiff.viz import color
+from pytest_gitdiff.viz import print_crashes
+from pytest_gitdiff.viz import print_summary
 
 
 def git_revision(rev: str) -> str:
@@ -52,48 +47,6 @@ def configure_subprocess(silent: bool) -> Dict[str, Any]:
     return opts
 
 
-def color(text: str, clr: Any):
-    return clr + text + Style.RESET_ALL
-
-
-def print_delimiter(fill_char: str, inner: str = "", clr: Optional[Any] = None) -> None:
-    size = os.get_terminal_size().columns
-    size = size - len(inner) - 2
-    half_fill = fill_char * (math.ceil(size / 2))
-    line = half_fill + f"{inner}" + half_fill
-    if clr is not None:
-        line = color(line, clr)
-
-    print(line)
-
-
-def print_summary(diff: DiffSummary) -> None:
-    if diff.empty:
-        print(color("No changes so far.", Fore.YELLOW))
-        return
-
-    print_delimiter("=", inner="diff summary")
-    if len(diff.new) > 0:
-        print(color(f"++ {len(diff.new)} tests added", Fore.GREEN))
-    if len(diff.succeeded) > 0:
-        print(color(f"+  {len(diff.succeeded)} tests now pass", Fore.GREEN))
-    if len(diff.deleted) > 0:
-        print(color(f"*  {len(diff.deleted)} tests deleted", Fore.LIGHTRED_EX))
-    if len(diff.failed) > 0:
-        print(color(f"-- {len(diff.failed)} tests now fail", Fore.RED))
-
-    if diff.degradated:
-        print_delimiter("=", inner=f"{RAIN} degradated {RAIN}", clr=Fore.RED)
-    else:
-        print_delimiter("=", inner=f"{STAR} succeeded {STAR}", clr=Fore.GREEN)
-
-
-def print_crashes(diff: DiffSummary) -> None:
-    for test in diff.failed:
-        print_delimiter("-", inner=test.nodeid, color=Fore.RED)
-        print(test.error)
-
-
 def main() -> NoReturn:
     arguments = cmdline_arguments()
     try:
@@ -112,7 +65,7 @@ def main() -> NoReturn:
             print_summary(diff)
     except Exception:
         traceback.print_exc()
-        print(Fore.RED + "Irrecoverable error caught, terminating" + Style.RESET_ALL)
+        print(color("Irrecoverable error caught, terminating", Fore.RED))
         sys.exit(2)
     except KeyboardInterrupt:
         print("Interrupted.")

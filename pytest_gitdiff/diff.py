@@ -4,14 +4,12 @@ import os
 import subprocess
 import tempfile
 from typing import Any
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Sequence
 from typing import TypeVar
 
-from colorama import Fore
 from git import GitCommandError
 from git import Repo
 
@@ -82,10 +80,6 @@ def run_pytest(*args: str, **opts: Any) -> TestReport:
 
         if not os.path.isfile(json_file):
             raise RuntimeError("Pytest failed at collection phase")
-
-        with open(json_file) as f:
-            with open("log.log", "w") as fp:
-                fp.write(f.read())
 
         return TestReport.parse_file(json_file)
 

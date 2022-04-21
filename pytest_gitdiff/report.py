@@ -1,7 +1,7 @@
 from typing import Any
 from typing import FrozenSet
+from typing import List
 from typing import Optional
-from typing import Tuple
 
 import pydantic
 
@@ -58,6 +58,24 @@ class TestOutcome(FrozenBaseModel):
                 return phase.longrepr
 
         raise RuntimeError(f"Unable to find failure reason for test {self.nodeid}")
+
+    def get_node_tokens(self) -> List[str]:
+        path, groups = self.nodeid.split("::", maxsplit=1)
+        return [path, *groups.split("::")]
+
+    def __hash__(self) -> int:
+        return hash(self.nodeid)
+
+    def __eq__(self, other: Any):
+        if not isinstance(other, TestOutcome):
+            return NotImplemented
+
+        return self.nodeid == other.nodeid
+
+    def __str__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(nodeid={self.nodeid}, outcome={self.outcome})"
+        )
 
 
 class TestReport(FrozenBaseModel):
